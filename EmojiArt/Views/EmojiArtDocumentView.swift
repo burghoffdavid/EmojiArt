@@ -47,74 +47,9 @@ struct EmojiArtDocumentView: View {
                     }
                 }
                 .padding(.horizontal)
-                HStack{
-                    Button(action: {
-                        showingEditSheet = true
-                    }){
-                        Image(systemName: "pencil.circle")
-                    }
-                    .actionSheet(isPresented: $showingEditSheet){
-                        ActionSheet(title: Text("Edit"),
-                                    message: Text("Choose Option"),
-                                    buttons: [
-                                        .default(Text("insert Background from URL")){
-                                            showBackgroundURLInputModal = true
-                                        },
-                                        .destructive(Text("Delete all Emojis")){
-                                            for emoji in document.emojis{
-                                                document.removeEmoji(emoji)
-                                            }
-                                        },
-                                        .destructive(Text("Delete Background")){
-                                            document.removeBackgroundImage()
-                                        },
-                                        .destructive(Text("Delete Document")){
-                                            document.deleteDocument()
-                                        },
-                                        .cancel()
-                                    ])
-                    }
-                    .sheet(isPresented: $showBackgroundURLInputModal){
-                        VStack {
-                            Text("Please insert your image URL below")
-                            TextField("UserURLInput", text: $userURLInput)
-                            HStack{
-                                Button("Submit"){
-                                    let url = URL(string: userURLInput)
-                                    document.backgroundURL = url
-                                        showBackgroundURLInputModal = false
-                                    }
-                                }
-                                Button("Cancel"){
-                                    showBackgroundURLInputModal = false
-                                }
-                            }
-                        }
-                    Button(action: {
-                        selectedEmojis.removeAll()
-                    }){
-                        Image(systemName: "checkmark.circle")
-                    }
-                    Button(action: {
-                        for emoji in document.emojis{
-                            selectedEmojis.insert(emoji)
-                        }
-                    }){
-                        Image(systemName: "checkmark.circle.fill")
-                    }
-                    Button(action: {
-                        for selectedEmoji in selectedEmojis{
-                            document.removeEmoji(selectedEmoji)
-                        }
-                    }){
-                        Image(systemName: "trash.circle.fill")
-                    }
-                }
-                .padding()
-                .font(.system(size: 40))
-                .onAppear{
-                    chosenPalette = document.defaultPalette
-                }
+                DocumentControlsView(selectedEmojis: $selectedEmojis)
+                    .environmentObject(document)
+                    
             }
             GeometryReader{ geometry in
                 ZStack{
@@ -146,6 +81,9 @@ struct EmojiArtDocumentView: View {
                 .edgesIgnoringSafeArea([.horizontal, .bottom])
                 .onReceive(document.$backgroundImage){ image in
                     zoomToFit(image, in: geometry.size)
+                }
+                .onAppear{
+                    chosenPalette = document.defaultPalette
                 }
                 .onDrop(of: ["public.image","public.text"], isTargeted: nil){ providers, location in
                     var location = geometry.convert(location, from : .global)
@@ -335,65 +273,3 @@ struct ContentView_Previews: PreviewProvider {
     }
 }
 
-struct PaletteEditor: View {
-    
-    @EnvironmentObject var document: EmojiArtDocument
-    
-    @Binding var chosenPalette: String
-    @Binding var isShowing: Bool
-    @State private var paletteName: String = ""
-    @State private var emojisToAdd: String = ""
-    
-    var body: some View{
-        VStack(spacing: 0){
-            ZStack{
-                Text("PaletteEditor")
-                    .font(.headline)
-                    .padding()
-                HStack{
-                    Spacer()
-                    Button(action: {
-                        isShowing = false
-                    }, label: {Text("Done")}).padding()
-                }
-                
-            }
-           
-            Divider()
-            Form{
-                Section{
-                    TextField("Palette Name", text: $paletteName, onEditingChanged: { began in
-                        if !began{
-                            document.renamePalette(chosenPalette, to: paletteName)
-                        }
-                    })
-                    TextField("Add Emoji", text: $emojisToAdd, onEditingChanged: { began in
-                        if !began{
-                            document.addEmoji(emojisToAdd, toPalette: chosenPalette)
-                            emojisToAdd = ""
-                        }
-                    })
-                }
-                Section(header: Text("Remove Emoji")){
-                    VStack{
-                        Grid(chosenPalette.map{String($0)},id:\.self ){emoji in
-                            Text(emoji)
-                                .font(Font.system(size: fontSize))
-                                .onTapGesture {
-                                    chosenPalette = document.removeEmoji(emoji, fromPalette: chosenPalette)
-                                }
-                        }
-                        .frame(height: height)
-                    }
-                }
-            }
-        }
-        .onAppear{paletteName = document.paletteNames[chosenPalette] ?? ""}
-    }
-    
-    //Mark: - Drawing Constants
-    private var height: CGFloat{
-        CGFloat((chosenPalette.count - 1 )/6) * 70 + 70
-    }
-    private let fontSize: CGFloat = 40
-}
