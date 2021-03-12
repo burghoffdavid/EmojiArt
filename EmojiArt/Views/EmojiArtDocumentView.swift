@@ -17,14 +17,26 @@ struct EmojiArtDocumentView: View {
     //temporarily save selected Emojis
     @State var selectedEmojis: Set = Set<EmojiArt.Emoji>()
     // View related State Variables
-    @State var showingEditSheet = false
-    @State var showBackgroundURLInputModal = false
-    @State var userURLInput: String = ""
+    @State private var showingEditSheet = false
+    @State private var showBackgroundURLInputModal = false
+    @State private var userURLInput: String = ""
+    @State private var showPaletteEditor = false
+    @State private var explainBackgroundPaste = false
     
     var body: some View {
         VStack {
             HStack{
                 PaletteChooser(chosenPalette: $chosenPalette, document: document)
+                Image(systemName: "keyboard")
+                    .imageScale(.large)
+                    .onTapGesture {
+                        showPaletteEditor = true
+                    }
+                    .sheet(isPresented: $showPaletteEditor){
+                        PaletteEditor(chosenPalette: $chosenPalette, isShowing: $showPaletteEditor)
+                            .environmentObject(document)
+                            .frame(minWidth: 300, minHeight: 500)
+                    }
                 ScrollView(.horizontal){
                     HStack{
                         ForEach(chosenPalette.map{String($0)}, id: \.self){ emoji in // \.self KEypath, specify var on another Object
@@ -142,20 +154,43 @@ struct EmojiArtDocumentView: View {
                     location = CGPoint(x: location.x / zoomScale, y: location.y / zoomScale)
                     return self.drop(providers: providers, at: location)
                 }
+                .navigationBarItems(trailing: Button(action: {
+                    if let url = UIPasteboard.general.url, url != document.backgroundURL{
+                        confirmBackgroundPaste = true
+                    }else{
+                        explainBackgroundPaste = true
+                    }
+                }, label: {
+                    Image(systemName: "doc.on.clipboard").imageScale(.large)
+                        .alert(isPresented: $explainBackgroundPaste){
+                            Alert(title: Text("Paste Bacground"),
+                                  message: Text("Copy the URL of an image to the clpi board and touch the button to make it the background of your document"),
+                                  dismissButton: .default(Text("OK")))
+                        }
+                }))
             }
         }
+        .alert(isPresented: $confirmBackgroundPaste){
+            Alert(title: Text("Paste Background"),
+                  message: Text("Replace your background with \(UIPasteboard.general.url?.absoluteString ?? "nothing")?."),
+                  primaryButton: .default(Text("OK")){
+                    document.backgroundURL = UIPasteboard.general.url
+                  },
+                  secondaryButton: .cancel())
+        }
     }
+    @State private var confirmBackgroundPaste = false
     
     var isLoading: Bool{
         document.backgroundURL != nil && document.backgroundImage == nil
     }
     
     //MARK: - Backbround Gestures
-    @State private var steadyStateZoomScale: CGFloat = 1.0
+    
     @GestureState private var gestureZoomScale: CGFloat = 1.0
     
     private var zoomScale: CGFloat {
-        steadyStateZoomScale * (selectedEmojis.isEmpty ? gestureZoomScale : 1)
+        document.steadyStateZoomScale * (selectedEmojis.isEmpty ? gestureZoomScale : 1)
     }
     
     
@@ -163,7 +198,7 @@ struct EmojiArtDocumentView: View {
     @GestureState private var gestureEmojiZoomScale: CGFloat = 1.0
     
     private var emojiZoomScale: CGFloat {
-        steadyStateZoomScale * gestureZoomScale
+        document.steadyStateZoomScale * gestureZoomScale
     }
     
     
@@ -180,16 +215,16 @@ struct EmojiArtDocumentView: View {
             }
             .onEnded{ finalGestureScale in
                 if selectedEmojis.isEmpty{
-                    steadyStateZoomScale *= finalGestureScale
+                    document.steadyStateZoomScale *= finalGestureScale
                 }
             }
     }
     
-    @State private var steadyStatePanOffset: CGSize = .zero
+    
     @GestureState private var gesturePanOffset: CGSize = .zero
     
     private var panOffset: CGSize{
-        (steadyStatePanOffset + gesturePanOffset) * zoomScale
+        (document.steadyStatePanOffset + gesturePanOffset) * zoomScale
     }
     
     private func panGesture () -> some Gesture{
@@ -198,7 +233,7 @@ struct EmojiArtDocumentView: View {
                 gesturePanOffset = latestDragGestureValue.translation / zoomScale
             }
             .onEnded {finalDragGestureValue in
-                steadyStatePanOffset = steadyStatePanOffset + (finalDragGestureValue.translation / zoomScale)
+                document.steadyStatePanOffset = document.steadyStatePanOffset + (finalDragGestureValue.translation / zoomScale)
             }
     }
     
@@ -263,11 +298,11 @@ struct EmojiArtDocumentView: View {
 
     
     private func zoomToFit(_ image: UIImage?, in size: CGSize){
-        if let image = image, image.size.width > 0, image.size.height > 0{
+        if let image = image, image.size.width > 0, image.size.height > 0, size.height > 0, size.width > 0 {
             let hZoom = size.width / image.size.width
             let vZoom = size.height / image.size.height
-            steadyStatePanOffset = .zero
-            steadyStateZoomScale = min(hZoom, vZoom)
+            document.steadyStatePanOffset = .zero
+            document.steadyStateZoomScale = min(hZoom, vZoom)
         }
     }
     
@@ -300,3 +335,65 @@ struct ContentView_Previews: PreviewProvider {
     }
 }
 
+struct PaletteEditor: View {
+    
+    @EnvironmentObject var document: EmojiArtDocument
+    
+    @Binding var chosenPalette: String
+    @Binding var isShowing: Bool
+    @State private var paletteName: String = ""
+    @State private var emojisToAdd: String = ""
+    
+    var body: some View{
+        VStack(spacing: 0){
+            ZStack{
+                Text("PaletteEditor")
+                    .font(.headline)
+                    .padding()
+                HStack{
+                    Spacer()
+                    Button(action: {
+                        isShowing = false
+                    }, label: {Text("Done")}).padding()
+                }
+                
+            }
+           
+            Divider()
+            Form{
+                Section{
+                    TextField("Palette Name", text: $paletteName, onEditingChanged: { began in
+                        if !began{
+                            document.renamePalette(chosenPalette, to: paletteName)
+                        }
+                    })
+                    TextField("Add Emoji", text: $emojisToAdd, onEditingChanged: { began in
+                        if !began{
+                            document.addEmoji(emojisToAdd, toPalette: chosenPalette)
+                            emojisToAdd = ""
+                        }
+                    })
+                }
+                Section(header: Text("Remove Emoji")){
+                    VStack{
+                        Grid(chosenPalette.map{String($0)},id:\.self ){emoji in
+                            Text(emoji)
+                                .font(Font.system(size: fontSize))
+                                .onTapGesture {
+                                    chosenPalette = document.removeEmoji(emoji, fromPalette: chosenPalette)
+                                }
+                        }
+                        .frame(height: height)
+                    }
+                }
+            }
+        }
+        .onAppear{paletteName = document.paletteNames[chosenPalette] ?? ""}
+    }
+    
+    //Mark: - Drawing Constants
+    private var height: CGFloat{
+        CGFloat((chosenPalette.count - 1 )/6) * 70 + 70
+    }
+    private let fontSize: CGFloat = 40
+}

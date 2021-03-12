@@ -8,21 +8,35 @@
 import SwiftUI
 import Combine
 
-class EmojiArtDocument: ObservableObject{
+class EmojiArtDocument: ObservableObject, Hashable, Identifiable{
+    
+    static func == (lhs: EmojiArtDocument, rhs: EmojiArtDocument) -> Bool {
+        lhs.id == rhs.id
+    }
+    
+    let id: UUID
+    
+    func hash(into hasher: inout Hasher){
+        hasher.combine(id)
+    }
+    
     static let palette: String = "🍾🦇🐢"
     let defaults = UserDefaults.standard
 
     @Published private var emojiArt: EmojiArt
     
-    private static let untitled = "EmojiArtDocument.Untitled"
+    @Published var steadyStatePanOffset: CGSize = .zero
+    @Published var steadyStateZoomScale: CGFloat = 1.0
     
     private var autoSaveCancellable: AnyCancellable?
     
-    init(){
-        emojiArt = EmojiArt(json: defaults.data(forKey: EmojiArtDocument.untitled)) ?? EmojiArt()
+    init(id: UUID? = nil){
+        self.id = id ?? UUID()
+        let defaultsKey = "EmojiArtDocument.\(self.id.uuidString)"
+        emojiArt = EmojiArt(json: defaults.data(forKey: defaultsKey)) ?? EmojiArt()
         autoSaveCancellable = $emojiArt.sink{emojiArt in
             print("\(emojiArt.json?.utf8 ?? "nil")")
-            UserDefaults.standard.set(emojiArt.json, forKey: EmojiArtDocument.untitled)
+            UserDefaults.standard.set(emojiArt.json, forKey: defaultsKey)
         }
         fetchBackgroundImageData()
     }
@@ -86,7 +100,7 @@ class EmojiArtDocument: ObservableObject{
     func deleteDocument(){
         emojiArt = EmojiArt()
         backgroundImage = nil
-        defaults.setValue(nil, forKey: EmojiArtDocument.untitled)
+        //defaults.setValue(nil, forKey: EmojiArtDocument.untitled)
     }
 }
 // not violating MVVM since it is in ViewModel
