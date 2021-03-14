@@ -27,10 +27,8 @@ struct PaletteEditor: View {
                     Button(action: {
                         isShowing = false
                     }, label: {Text("Done")}).padding()
-                }
-                
+                }   
             }
-           
             Divider()
             Form{
                 Section{

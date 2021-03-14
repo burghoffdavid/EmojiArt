@@ -17,9 +17,6 @@ struct EmojiArtDocumentView: View {
     //temporarily save selected Emojis
     @State var selectedEmojis: Set = Set<EmojiArt.Emoji>()
     // View related State Variables
-    @State private var showingEditSheet = false
-    @State private var showBackgroundURLInputModal = false
-    @State private var userURLInput: String = ""
     @State private var showPaletteEditor = false
     @State private var explainBackgroundPaste = false
     
@@ -92,20 +89,20 @@ struct EmojiArtDocumentView: View {
                     location = CGPoint(x: location.x / zoomScale, y: location.y / zoomScale)
                     return self.drop(providers: providers, at: location)
                 }
-                .navigationBarItems(trailing: Button(action: {
-                    if let url = UIPasteboard.general.url, url != document.backgroundURL{
-                        confirmBackgroundPaste = true
-                    }else{
-                        explainBackgroundPaste = true
-                    }
-                }, label: {
-                    Image(systemName: "doc.on.clipboard").imageScale(.large)
-                        .alert(isPresented: $explainBackgroundPaste){
-                            Alert(title: Text("Paste Bacground"),
-                                  message: Text("Copy the URL of an image to the clpi board and touch the button to make it the background of your document"),
-                                  dismissButton: .default(Text("OK")))
-                        }
-                }))
+//                .navigationBarItems(trailing: Button(action: {
+//                    if let url = UIPasteboard.general.url, url != document.backgroundURL{
+//                        confirmBackgroundPaste = true
+//                    }else{
+//                        explainBackgroundPaste = true
+//                    }
+//                }, label: {
+//                    Image(systemName: "doc.on.clipboard").imageScale(.large)
+//                        .alert(isPresented: $explainBackgroundPaste){
+//                            Alert(title: Text("Paste Bacground"),
+//                                  message: Text("Copy the URL of an image to the clpi board and touch the button to make it the background of your document"),
+//                                  dismissButton: .default(Text("OK")))
+//                        }
+//                }))
             }
         }
         .alert(isPresented: $confirmBackgroundPaste){

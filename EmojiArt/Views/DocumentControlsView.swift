@@ -3,7 +3,10 @@ import SwiftUI
 struct DocumentControlsView: View {
     
     @State var showingEditSheet: Bool = false
+    @State var showImagePicker: Bool = false
     @State var showBackgroundURLInputModal: Bool = false
+    @State var imagePickerSourceType = UIImagePickerController.SourceType.photoLibrary
+    
     @Binding var selectedEmojis: Set<EmojiArt.Emoji>
     @State var userURLInput: String = ""
     @EnvironmentObject var document : EmojiArtDocument
@@ -21,6 +24,14 @@ struct DocumentControlsView: View {
                             buttons: [
                                 .default(Text("insert Background from URL")){
                                     showBackgroundURLInputModal = true
+                                },
+                                .default(Text("Insert photo from Library")){
+                                    imagePickerSourceType = .photoLibrary
+                                    showImagePicker = true
+                                },
+                                .default(Text("Insert photo from Camera")){
+                                    imagePickerSourceType = .camera
+                                    showImagePicker = true
                                 },
                                 .destructive(Text("Delete all Emojis")){
                                     for emoji in document.emojis{
@@ -50,6 +61,16 @@ struct DocumentControlsView: View {
                     Button("Cancel"){
                         showBackgroundURLInputModal = false
                     }
+                }
+            }
+            .sheet(isPresented: $showImagePicker){
+                ImagePicker(sourceType: imagePickerSourceType){ image in
+                    if image != nil{
+                        DispatchQueue.main.async {
+                            self.document.backgroundURL = image!.storeInFilesystem()
+                        }
+                    }
+                    self.showImagePicker = false
                 }
             }
             Button(action: {
